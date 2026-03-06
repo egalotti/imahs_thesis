@@ -1,0 +1,733 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Evaluation Spider Chart — Checkbox Scoring + Recommendations</title>
+  <style>
+    /* Keep widths predictable so long text does not push card edges */
+    *, *::before, *::after{ box-sizing:border-box; }
+    :root{
+      --fg:#111827; --muted:#6b7280; --bg:#ffffff;
+      --panel:#f9fafb; --border:#e5e7eb;
+      --shadow:0 6px 18px rgba(0,0,0,.06);
+      --r:16px; --max:5;
+      --green:#16a34a; /* UI green */
+    }
+    body{
+      margin:0; font-family: ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial;
+      color:var(--fg); background:var(--bg);
+    }
+    .wrap{
+      max-width:1280px; margin:24px auto; padding:0 16px;
+      display:grid; grid-template-columns: 560px 1fr; gap:16px;
+    }
+    @media (max-width: 1100px){ .wrap{ grid-template-columns: 1fr; } }
+
+    .card{
+      background:var(--panel); border:1px solid var(--border);
+      border-radius:var(--r); box-shadow:var(--shadow); padding:16px;
+    }
+    h1{ font-size:18px; margin:0 0 10px; }
+    .sub{ font-size:13px; color:var(--muted); margin:0 0 12px; line-height:1.35; }
+
+    .btns{ display:flex; flex-wrap:wrap; gap:8px; margin:10px 0 14px; }
+    button{
+      border:1px solid var(--border); background:#fff; color:var(--fg);
+      border-radius:12px; padding:10px 12px; cursor:pointer; font-size:13px;
+    }
+    button:hover{ filter:brightness(.98); }
+
+    details{
+      background:#fff; border:1px solid var(--border); border-radius:12px;
+      padding:10px 10px 8px; margin-bottom:10px;
+    }
+    summary{
+      cursor:pointer; font-weight:700; font-size:13px; list-style:none;
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+    }
+    summary::-webkit-details-marker{ display:none; }
+    summary::before{
+      content:"▸";
+      color:var(--muted);
+      font-size:16px;
+      line-height:1;
+      margin-right:8px;
+      transform:translateY(-0.5px);
+      transition:transform .18s ease;
+      flex:0 0 auto;
+    }
+    details[open] > summary::before{
+      transform:rotate(90deg);
+    }
+    summary > span:first-child{
+      flex:1 1 auto;
+      min-width:0;
+    }
+
+    .scorepill{
+      font-weight:800; font-variant-numeric: tabular-nums;
+      border:1px solid var(--border); border-radius:999px; padding:4px 10px;
+      background:var(--panel);
+    }
+
+    .checks{ margin-top:10px; display:grid; gap:8px; }
+    .check{
+      display:flex; gap:10px; align-items:flex-start;
+      font-size:13px; line-height:1.25;
+    }
+    /* ✅ Green checkboxes */
+    .check input{
+      margin-top:2px;
+      accent-color: var(--green);
+    }
+
+    .right{
+      display:grid;
+      grid-template-rows: auto auto;
+      gap:12px;
+    }
+
+    .chart-card{
+      display:grid; place-items:center; padding:16px;
+    }
+    .topbar{
+      width:100%; display:flex; justify-content:space-between; align-items:flex-end;
+      gap:12px; margin-bottom:8px;
+    }
+    .topbar .title{ font-weight:900; }
+    .topbar .meta{ font-size:12px; color:var(--muted); }
+    .legendline{
+      display:flex; gap:10px; align-items:center; font-size:12px; color:var(--muted);
+      flex-wrap:wrap;
+    }
+    .chip{
+      display:inline-flex; gap:8px; align-items:center;
+      border:1px solid var(--border);
+      background:#fff; border-radius:999px; padding:4px 10px;
+    }
+    .dot{ width:10px; height:10px; border-radius:999px; display:inline-block; }
+    .dot.black{ background:#111827; }
+    .dot.green{ background:var(--green); }
+
+    .scores{
+      width:100%;
+      display:grid; grid-template-columns: 1fr 1fr; gap:10px;
+      font-size:13px; color:var(--muted);
+      margin-top:10px;
+    }
+    .scores div{
+      background:#fff; border:1px solid var(--border); border-radius:12px; padding:10px;
+      display:flex; justify-content:space-between; align-items:flex-start; gap:10px;
+      flex-wrap:wrap;
+      min-width:0;
+    }
+    .scores div > span{ min-width:0; overflow-wrap:anywhere; word-break:break-word; }
+    .scores b{ color:var(--fg); font-variant-numeric: tabular-nums; }
+
+    /* ✅ Recommendations box (bottom-right) — ONLY STYLING CHANGED */
+    .reco{
+      background:#f0fdf4;          /* very light green background */
+      border:1px solid #bbf7d0;    /* soft green border */
+      border-radius:16px;
+      padding:14px;
+      width:100%;
+    }
+    .reco h2{
+      font-size:14px;
+      margin:0 0 6px;
+      color:#166534;               /* dark green */
+    }
+    .reco-actions{
+      display:flex;
+      justify-content:flex-start;
+      margin:0 0 10px;
+    }
+    .reco-btn{
+      border:1px solid #bbf7d0;
+      background:#ffffff;
+      color:#166534;
+      border-radius:10px;
+      padding:7px 10px;
+      font-size:12px;
+      line-height:1.1;
+      cursor:pointer;
+    }
+    .reco-btn:hover{ filter:brightness(.98); }
+    .reco ul{
+      margin:0;
+      padding-left:18px;
+      display:grid;
+      gap:8px;
+      font-size:13px;
+      line-height:1.25;
+      color:#166534;               /* dark green */
+    }
+    .reco li{
+      overflow-wrap:anywhere;
+      word-break:break-word;
+      padding-right:2px; /* tiny buffer from card border */
+    }
+    /* keep tags neutral */
+    .reco .tag{
+      display:inline-block;
+      font-size:11px;
+      color:var(--muted);
+      border:1px solid var(--border);
+      border-radius:999px;
+      padding:2px 8px;
+      margin-right:8px;
+      margin-top:4px;
+      background:var(--panel);
+      vertical-align:middle;
+      max-width:100%;
+      overflow-wrap:anywhere;
+    }
+
+    .smallnote{
+      margin-top:10px;
+      font-size:12px;
+      color:var(--muted);
+    }
+
+    /* Prevent the chart from overflowing its card on smaller screens */
+    #radar{
+      width:min(100%, 720px);
+      height:auto;
+      display:block;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Evaluation Scale — Checkbox Scoring</h1>
+      <p class="sub">
+        Tick checkpoints. Each criterion score is calculated automatically (0–5, rounded to 0.5).
+        The spider chart updates live. Recommendations appear on the right.
+      </p>
+
+      <div class="btns">
+        <button id="btnReset">Reset</button>
+        <button id="btnExample">Load example</button>
+        <button id="btnDownload">Download SVG</button>
+      </div>
+
+      <div id="criteria"></div>
+
+      <div class="smallnote">
+        Scoring logic: each checked item adds points within its criterion (equal weight).
+        “Impact if improved” (green line) shows a realistic uplift based on currently missing items.
+      </div>
+    </div>
+
+    <div class="right">
+      <div class="card chart-card">
+        <div class="topbar">
+          <div>
+            <div class="title">Spider Chart Results</div>
+            <div class="meta">Scale 0–5 • 5 axes • scores derived from checkboxes</div>
+          </div>
+          <div class="meta" id="overall"></div>
+        </div>
+
+        <div class="legendline" style="width:100%; margin-bottom:8px;">
+          <span class="chip"><span class="dot black"></span> Current score</span>
+          <span class="chip"><span class="dot green"></span> Impact if improved</span>
+        </div>
+
+        <svg id="radar" width="720" height="520" viewBox="0 0 720 520" role="img" aria-label="Radar chart"></svg>
+
+        <div class="scores" id="scoreList"></div>
+      </div>
+
+      <div class="card">
+        <div class="reco">
+          <h2>Recommendations (auto-generated)</h2>
+          <div class="reco-actions">
+            <button id="btnRecoShuffle" class="reco-btn" type="button">Shuffle recommendations</button>
+          </div>
+          <ul id="recoList"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // ====== CONFIG ======
+  const MAX = 5;
+  const GREEN = "#16a34a";
+
+  const model = [
+    {
+      key: "youth",
+      axisLabel: "Youth Participation\n& Inclusion",
+      title: "1. Youth Participation & Inclusivity",
+      checkpoints: [
+        "Entry is free or low-cost for teenagers.",
+        "The exhibition is easy to reach by public transport.",
+        "The exhibition is accessible (step-free access, inclusive facilities).",
+        "Information is inclusive (easy-to-read, multiple languages, audio/visual support, quiet spaces).",
+        "Teenagers can participate beyond visiting (co-design, youth group, peer guides, youth media).",
+        "The exhibition is also available online or as a mobile/pop-up format (reaches different places)."
+      ]
+    },
+    {
+      key: "experiential",
+      axisLabel: "Experiential Learning\nQuality",
+      title: "2. Experiential Learning Quality",
+      checkpoints: [
+        "There are hands-on stations (try, touch, make, grow, test).",
+        "Teens solve a task or challenge (not just read information).",
+        "There are prompts for reflection (questions, discussion, debrief).",
+        "There is space/time to think (seating, drawing/recording, planning).",
+        "Staff/materials support teens to develop an idea (small project or prototype)."
+      ]
+    },
+    {
+      key: "agri",
+      axisLabel: "Agricultural Knowledge\n& Image",
+      title: "3. Agricultural Knowledge & Image",
+      checkpoints: [
+        "The exhibition explains more than one farming topic (e.g., soils, plants, animals, tech, value chains).",
+        "It links local food to global systems (climate, justice, trade-offs).",
+        "It shows multiple perspectives (farmers, workers, science, consumers, nature).",
+        "It challenges stereotypes about agriculture (innovation, diverse models, different realities).",
+        "It shows youth-relevant pathways (jobs, training, volunteering, digital/creative roles)."
+      ]
+    },
+    {
+      key: "guidance",
+      axisLabel: "Guidance & Goal\nAlignment",
+      title: "4. Pedagogical Mediation & Guidance",
+      checkpoints: [
+        "Learning goals for teens are clear (what you can understand/do after).",
+        "The storyline is easy to follow (clear sections, way-finding, ‘red thread’).",
+        "Texts and visuals are teen-friendly (short, concrete, everyday examples).",
+        "There are different ways to learn (labels, tours, workshops, audio/app).",
+        "Visitors can give feedback (comments, votes, questions) and it is collected."
+      ]
+    },
+    {
+      key: "outcomes",
+      axisLabel: "Measurable Learning\nOutcomes",
+      title: "5. Assessed Learning Outcomes",
+      checkpoints: [
+        "Outcomes are defined (knowledge, skills, attitudes, enjoyment, intentions).",
+        "More than one evaluation method is used (survey + observation/interview/task).",
+        "Teens can show learning in an authentic way (artefact, plan, debate, media).",
+        "Results are reviewed and used to improve the exhibition.",
+        "Assessment is integrated into activities (not a separate ‘test’)."
+      ]
+    }
+  ];
+
+  // State: checkbox booleans for each criterion
+  const state = Object.fromEntries(model.map(c => [c.key, Array(c.checkpoints.length).fill(false)]));
+
+  // ====== UI BUILD ======
+  const criteriaEl = document.getElementById("criteria");
+
+  function criterionScore(key){
+    const checks = state[key];
+    const total = checks.length;
+    const yes = checks.filter(Boolean).length;
+    const raw = (yes / total) * MAX;        // 0..5
+    return Math.round(raw * 2) / 2;         // round to 0.5
+  }
+
+  function allScores(){
+    return model.map(c => criterionScore(c.key));
+  }
+
+  function overallScore(scores){
+    const avg = scores.reduce((a,b)=>a+b,0) / scores.length;
+    return Math.round(avg * 100) / 100;
+  }
+
+  function buildCriteriaUI(){
+    criteriaEl.innerHTML = "";
+    model.forEach((c, ci) => {
+      const det = document.createElement("details");
+      det.open = ci === 0;
+
+      const sum = document.createElement("summary");
+      sum.innerHTML = `<span>${c.title}</span> <span class="scorepill" id="pill-${c.key}">0.0</span>`;
+      det.appendChild(sum);
+
+      const checksWrap = document.createElement("div");
+      checksWrap.className = "checks";
+
+      c.checkpoints.forEach((text, i) => {
+        const row = document.createElement("label");
+        row.className = "check";
+
+        const input = document.createElement("input");
+        input.type = "checkbox";
+        input.checked = state[c.key][i];
+
+        input.addEventListener("change", () => {
+          state[c.key][i] = input.checked;
+          updateAll();
+        });
+
+        const span = document.createElement("span");
+        span.textContent = text;
+
+        row.appendChild(input);
+        row.appendChild(span);
+        checksWrap.appendChild(row);
+      });
+
+      det.appendChild(checksWrap);
+      criteriaEl.appendChild(det);
+    });
+  }
+
+  // ====== Recommendations + "Impact if improved" scoring ======
+  const recoListEl = document.getElementById("recoList");
+
+  const recoLibrary = {
+    youth: [
+      { whenMissing: [0], text: "Reduce cost barriers: free teen tickets, school group passes, or sponsor days." , tag:"Access" },
+      { whenMissing: [1], text: "Improve reachability: include clear public transport routes and travel time info." , tag:"Access" },
+      { whenMissing: [5], text: "Add online or mobile/pop-up access so teens outside the city can participate." , tag:"Reach" },
+      { whenMissing: [4], text: "Create a teen participation pathway: youth board, co-design workshops, or youth media roles." , tag:"Participation" },
+      { whenMissing: [3], text: "Strengthen inclusivity: easy-to-read labels, multi-language summaries, audio, and quiet spaces." , tag:"Inclusion" }
+    ],
+    experiential: [
+      { whenMissing: [0], text: "Add one high-quality hands-on station (e.g., soil test, planting, insect ID, mini lab)." , tag:"Hands-on" },
+      { whenMissing: [1], text: "Introduce a challenge: 'What would you do?' scenarios (water, biodiversity, pricing)." , tag:"Apply" },
+      { whenMissing: [2], text: "Embed reflection prompts at key points (short questions, peer talk, mini debrief)." , tag:"Reflect" },
+      { whenMissing: [4], text: "Offer a 'make something' output: prototype, planting plan, short video/podcast idea." , tag:"Create" }
+    ],
+    agri: [
+      { whenMissing: [0], text: "Cover more system layers: soils → production → processing → retail → waste." , tag:"Systems" },
+      { whenMissing: [1], text: "Connect local topics to global themes: climate, trade-offs, and food justice." , tag:"Global" },
+      { whenMissing: [3], text: "Actively counter stereotypes: show innovation, diverse farm models, and real constraints." , tag:"Image" },
+      { whenMissing: [4], text: "Add teen-relevant pathways: careers, training, volunteering, digital/creative roles." , tag:"Future" },
+      { whenMissing: [], text: "Information sources (placeholder): FAO/IFAD food security summaries, national agri-extension sites, museum education resources." , tag:"Sources" }
+    ],
+    guidance: [
+      { whenMissing: [0], text: "Make goals explicit: 'After this, you can explain…' (one per section)." , tag:"Clarity" },
+      { whenMissing: [1], text: "Strengthen the 'red thread': consistent guiding question across stations." , tag:"Narrative" },
+      { whenMissing: [3], text: "Add at least two mediation formats (audio/app + workshop/tour) for different learners." , tag:"Formats" },
+      { whenMissing: [4], text: "Build feedback capture: QR prompts, voting wall, or short comment stations." , tag:"Feedback" }
+    ],
+    outcomes: [
+      { whenMissing: [0], text: "Define outcomes per axis (knowledge, attitude, intention) in one simple sentence each." , tag:"Outcomes" },
+      { whenMissing: [1], text: "Use mixed methods: 3–5 item survey + short observation sheet or interview prompts." , tag:"Methods" },
+      { whenMissing: [2], text: "Let teens show learning via artefacts: mini poster, debate card, audio reflection, plan." , tag:"Authentic" },
+      { whenMissing: [3], text: "Create a review loop: team meeting + short report + iteration plan." , tag:"Improve" }
+    ]
+  };
+
+  function getMissingIndices(key){
+    const arr = state[key];
+    const missing = [];
+    for(let i=0;i<arr.length;i++) if(!arr[i]) missing.push(i);
+    return missing;
+  }
+
+  // Axes currently covered by the visible recommendations.
+  // The "Impact if improved" radar line uses this to stay coupled to the list.
+  const activeRecommendationTargets = new Set();
+  const MAX_RECOMMENDATIONS = 3;
+  // Keep projected gains conservative to avoid overwhelming jumps.
+  const IMPACT_BASE_UPLIFT = 0.5;
+  const IMPACT_MISSING_WEIGHT = 0.5;
+  const IMPACT_MAX_UPLIFT = 1.0;
+  const IMPACT_ZERO_SCORE_MAX_UPLIFT = 0.75;
+
+  function shuffle(arr){
+    const copy = [...arr];
+    for(let i = copy.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy;
+  }
+
+  function buildRecommendations(scoresInput){
+    const scores = scoresInput || allScores();
+    const scoresByKey = Object.fromEntries(
+      model.map((c,i)=>[c.key, scores[i]])
+    );
+
+    // Always clear list
+    recoListEl.innerHTML = "";
+    activeRecommendationTargets.clear();
+
+    // If nothing is selected yet, show starter suggestions instead of an empty panel.
+    const somethingSelected = scores.some(s => s > 0);
+    if(!somethingSelected){
+      // Starter mode: show only a light set of random tips.
+      const starterAxes = shuffle(model).slice(0, MAX_RECOMMENDATIONS);
+      starterAxes.forEach(c => {
+        const pool = recoLibrary[c.key] || [];
+        if(!pool.length) return;
+        const chosen = pool[Math.floor(Math.random() * pool.length)];
+        const li = document.createElement("li");
+        li.innerHTML = `<span class="tag">${chosen.tag}</span> ${chosen.text}`;
+        activeRecommendationTargets.add(c.key);
+        recoListEl.appendChild(li);
+      });
+      return;
+    }
+
+    // If all axes are full score, show the big congrats and stop.
+    const fullScore = scores.every(s => s >= 5);
+    if(fullScore){
+      const li = document.createElement("li");
+      li.innerHTML = "🎉 Congratulations! This exhibition concept achieves the maximum evaluation score across all criteria.";
+      recoListEl.appendChild(li);
+      return;
+    }
+
+    // Build one candidate per category, then show only 3 randomized items.
+    const candidates = [];
+    model.forEach(c => {
+      const score = scoresByKey[c.key];
+      if(score >= 5){
+        candidates.push({
+          type: "congrats",
+          criterionKey: c.key,
+          html: `✅ <span class="tag">Congrats</span> Full score achieved for <strong>${c.axisLabel.replace(/\n/g," ")}</strong>.`
+        });
+        return;
+      }
+
+      const missing = getMissingIndices(c.key);
+      const fromLibrary = (recoLibrary[c.key] || []).filter(item => {
+        if(!item.whenMissing || item.whenMissing.length === 0) return true;
+        return item.whenMissing.some(idx => missing.includes(idx));
+      });
+
+      // Fallback in case nothing matches the missing checkpoints.
+      const pool = fromLibrary.length ? fromLibrary : (recoLibrary[c.key] || []);
+      if(!pool.length) return;
+
+      // Randomize one suggestion for this category each refresh.
+      const chosen = pool[Math.floor(Math.random() * pool.length)];
+      candidates.push({
+        type: "suggestion",
+        criterionKey: c.key,
+        html: `<span class="tag">${chosen.tag}</span> ${chosen.text}`
+      });
+    });
+
+    shuffle(candidates).slice(0, MAX_RECOMMENDATIONS).forEach(item => {
+      const li = document.createElement("li");
+      li.innerHTML = item.html;
+      if(item.type === "suggestion"){
+        activeRecommendationTargets.add(item.criterionKey);
+      }
+      recoListEl.appendChild(li);
+    });
+}
+
+
+  function computeImprovedScores(scores){
+    return model.map((c, i) => {
+      // Keep green impact coupled to visible recommendations.
+      if(!activeRecommendationTargets.has(c.key)){
+        return scores[i];
+      }
+
+      const missingCount = getMissingIndices(c.key).length;
+      const total = state[c.key].length;
+      const missingRatio = total === 0 ? 0 : (missingCount / total);
+
+      // Conservative projection: typically +0.5 to +1.0 points.
+      // For zero-score axes, cap at +0.75 to avoid "too big from nothing".
+      let uplift = IMPACT_BASE_UPLIFT + (IMPACT_MISSING_WEIGHT * missingRatio);
+      uplift = Math.min(IMPACT_MAX_UPLIFT, uplift);
+      if(scores[i] === 0){
+        uplift = Math.min(IMPACT_ZERO_SCORE_MAX_UPLIFT, uplift);
+      }
+
+      const improved = Math.min(MAX, scores[i] + uplift);
+      return Math.round(improved * 2) / 2;
+    });
+  }
+
+  // ====== SVG RADAR ======
+  const svg = document.getElementById("radar");
+
+  function clearSVG(){ while(svg.firstChild) svg.removeChild(svg.firstChild); }
+  function addEl(tag, attrs={}, parent=svg){
+    const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+    Object.entries(attrs).forEach(([k,v]) => el.setAttribute(k, v));
+    parent.appendChild(el);
+    return el;
+  }
+  function polarToXY(cx, cy, r, angleRad){
+    return { x: cx + r * Math.sin(angleRad), y: cy - r * Math.cos(angleRad) };
+  }
+  function pointsToPath(points){
+    return points.map((p, idx)=> (idx===0?`M ${p.x} ${p.y}`:`L ${p.x} ${p.y}`)).join(" ") + " Z";
+  }
+  function wrapLabel(text, maxChars=18){
+    const words = text.replace(/\n/g," ").split(" ");
+    const lines=[]; let line="";
+    for(const w of words){
+      const t = (line? line+" ":"") + w;
+      if(t.length>maxChars){ if(line) lines.push(line); line=w; }
+      else line=t;
+    }
+    if(line) lines.push(line);
+    return lines;
+  }
+
+  function drawRadar(scores, improvedScores){
+    clearSVG();
+    const W=720, H=520;
+    const cx=W/2, cy=H/2 + 10;
+    const R=200;
+    const N=model.length;
+
+    addEl("rect", { x:0, y:0, width:W, height:H, fill:"#ffffff" });
+
+    for(let g=1; g<=MAX; g++){
+      const rg = (R*g)/MAX;
+      const pts=[];
+      for(let i=0;i<N;i++){
+        const a = (2*Math.PI*i)/N;
+        pts.push(polarToXY(cx, cy, rg, a));
+      }
+      addEl("path", {
+        d: pointsToPath(pts),
+        fill:"none",
+        stroke: g===MAX ? "#d1d5db" : "#e5e7eb",
+        "stroke-width": g===MAX ? "1.4" : "1"
+      });
+    }
+
+    for(let i=0;i<N;i++){
+      const a=(2*Math.PI*i)/N;
+      const end=polarToXY(cx, cy, R, a);
+      addEl("line", { x1:cx, y1:cy, x2:end.x, y2:end.y, stroke:"#e5e7eb", "stroke-width":"1" });
+
+      const labelPos = polarToXY(cx, cy, R+42, a);
+      const anchor =
+        (labelPos.x < cx - 10) ? "end" :
+        (labelPos.x > cx + 10) ? "start" : "middle";
+
+      const text = addEl("text", {
+        x: labelPos.x, y: labelPos.y,
+        fill:"#111827", "font-size":"12", "text-anchor":anchor
+      });
+
+      const lines = wrapLabel(model[i].axisLabel, 18);
+      lines.forEach((ln, idx)=>{
+        addEl("tspan", { x: labelPos.x, dy: idx===0 ? "0" : "14" }, text).textContent = ln;
+      });
+    }
+
+    function makePolygonPoints(vals){
+      const pts=[];
+      for(let i=0;i<N;i++){
+        const a=(2*Math.PI*i)/N;
+        const rv=(R * vals[i]) / MAX;
+        pts.push(polarToXY(cx, cy, rv, a));
+      }
+      return pts;
+    }
+
+    const impPts = makePolygonPoints(improvedScores);
+    addEl("path", {
+      d: pointsToPath(impPts),
+      fill: GREEN,
+      "fill-opacity":"0.06",
+      stroke: GREEN,
+      "stroke-width":"2.5"
+    });
+
+    const curPts = makePolygonPoints(scores);
+    addEl("path", {
+      d: pointsToPath(curPts),
+      fill:"#111827",
+      "fill-opacity":"0.10",
+      stroke:"#111827",
+      "stroke-width":"2.5"
+    });
+
+    curPts.forEach(p => addEl("circle", { cx:p.x, cy:p.y, r:"3.6", fill:"#111827" }));
+    addEl("circle", { cx, cy, r:"2.6", fill:"#6b7280" });
+  }
+
+  // ====== SCORE LIST ======
+  const scoreListEl = document.getElementById("scoreList");
+  const overallEl = document.getElementById("overall");
+
+  function updateScoreUI(scores, improvedScores){
+    model.forEach((c, i) => {
+      const pill = document.getElementById(`pill-${c.key}`);
+      if(pill) pill.textContent = scores[i].toFixed(1);
+    });
+
+    scoreListEl.innerHTML = "";
+    model.forEach((c, i) => {
+      const row = document.createElement("div");
+      row.innerHTML = `
+        <span>${c.axisLabel.replace(/\n/g," ")}</span>
+        <span>
+          <b>${scores[i].toFixed(1)}</b>
+          <span style="color:${GREEN}; font-weight:800; margin-left:10px;">${improvedScores[i].toFixed(1)}</span>
+        </span>
+      `;
+      scoreListEl.appendChild(row);
+    });
+
+    const avg = overallScore(scores).toFixed(2);
+    const avgImp = overallScore(improvedScores).toFixed(2);
+    overallEl.textContent = `Overall mean: ${avg} → ${avgImp}`;
+  }
+
+  function updateAll(){
+    const scores = allScores();
+    buildRecommendations(scores);
+    const improvedScores = computeImprovedScores(scores);
+    updateScoreUI(scores, improvedScores);
+    drawRadar(scores, improvedScores);
+  }
+
+  document.getElementById("btnReset").addEventListener("click", ()=>{
+    Object.keys(state).forEach(k => state[k] = state[k].map(()=>false));
+    buildCriteriaUI();
+    updateAll();
+  });
+
+  document.getElementById("btnExample").addEventListener("click", ()=>{
+    state.youth       = [true, true, false, true, false, false];
+    state.experiential= [true, true, false, true, false];
+    state.agri        = [true, false, true, false, true];
+    state.guidance    = [true, true, true, true, false];
+    state.outcomes    = [false, true, false, false, true];
+    buildCriteriaUI();
+    updateAll();
+  });
+
+  document.getElementById("btnDownload").addEventListener("click", ()=>{
+    const serializer = new XMLSerializer();
+    const source = serializer.serializeToString(svg);
+    const blob = new Blob([source], { type:"image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "evaluation_spider.svg";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  });
+
+  document.getElementById("btnRecoShuffle").addEventListener("click", ()=> updateAll());
+
+  // INIT
+  buildCriteriaUI();
+  updateAll();
+</script>
+</body>
+</html>
